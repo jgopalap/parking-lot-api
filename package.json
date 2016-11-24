@@ -1,0 +1,29 @@
+{
+  "name": "parking-lot-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jgopalap/parking-lot-api.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jgopalap/parking-lot-api/issues"
+  },
+  "homepage": "https://github.com/jgopalap/parking-lot-api#readme",
+  "dependencies": {
+    "body-parser": "^1.15.2",
+    "cors": "^2.8.1",
+    "express": "^4.14.0",
+    "express-jwt": "^5.1.0",
+    "mongo": "^0.1.0",
+    "mongodb": "^2.2.11",
+    "mongoose": "^4.6.8",
+    "multer": "^1.2.0"
+  }
+}

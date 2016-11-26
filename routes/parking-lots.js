@@ -77,6 +77,7 @@ app.post('/parkingLots/add', upload.array(), function(req, res){
 		name: req.body.name,
 		address: req.body.address,
 		city: req.body.city,
+		postalCode: req.body.postalCode,
 		capacity: req.body.capacity,
 		parkingSpots: [req.body.parkingSpots]
 	};
@@ -136,6 +137,7 @@ app.put('/parkingLots/:id/update', upload.array(), function(req, res){
   		parkingLot.name = req.body.name;
   		parkingLot.address = req.body.address;
   		parkingLot.city = req.body.city;
+  		parkingLot.postalCode = req.body.postalCode;
   		parkingLot.capacity = req.body.capacity;
   		parkingLot.parkingSpots = req.body.parkingSpots;
   		parkingLot.save(function(err, parkingLot) {

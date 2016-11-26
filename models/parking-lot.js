@@ -13,16 +13,11 @@ var parkingSpot = new Schema ({
 	car: {
 		type: String,
 		ref: 'car',
-		required: false
+		required: true
 	}
 });
 
 var parkingLot = new Schema({
-	_id: {
-		type: Number,
-		required: true,
-		unique: true
-	},
 	name: {
 		type: String,
 		required: true
@@ -34,6 +29,10 @@ var parkingLot = new Schema({
 	city: {
 		type: String,
 		required: false
+	},
+	postalCode: {
+		type: String,
+		required: true
 	},
 	capacity: {
 		type: Number,

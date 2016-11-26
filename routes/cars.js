@@ -3,10 +3,6 @@ var upload = require('../server').upload;
 var CarModel = require('../models/car').CarModel;
 
 
-app.get('/cars/:id/exit', function(req, res) {
-	
-});
-
 /**
 	GET car by given license plate number.
 	@param: license plate number (primary key) of car
@@ -73,6 +69,17 @@ app.put('/cars/:licensePlate/update', upload.array(), function(req, res){
   		});
   	});
 
+});
+
+/**
+	PUT/update the car upon exit.  Upon completion the car will be removed from the parking lot and its 
+	timeIn, timeOut, and cost fields set to undefined.  The car will also be removed from the parking spot
+	collection.
+*/
+app.put('/cars/:id/exit', function(req, res) {
+	CarModel.findById(req.params.id, function(err, car) {
+
+	})
 });
 
 /**

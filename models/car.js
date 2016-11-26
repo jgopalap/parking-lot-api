@@ -22,7 +22,7 @@ var car = new Schema({
 	},
 	timeOut: {
 		type: Date,
-		required: false
+		required: true
 	},
 	colour: {
 		type: String,
@@ -31,11 +31,11 @@ var car = new Schema({
 	location: {
 		type: String,
 		ref: 'parkingSpot',
-		required: false
+		required: true
 	},
 	cost: {
 		type: Number,
-		required: false
+		required: true
 	}
 });
 

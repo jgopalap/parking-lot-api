@@ -4,12 +4,13 @@ var Schema = mongoose.Schema;
 var car = new Schema({
 	_id: {
 		type: String,
-		required: true
+		required: true,
+		unique: true
 	},
-	valet: {
-		type: Number,
-		ref: 'users',
-		required: false
+	userId: {
+		type: Schema.Types.ObjectId,
+		ref: 'user',
+		required: true
 	},
 	model: {
 		type: String,
@@ -29,7 +30,11 @@ var car = new Schema({
 	},
 	location: {
 		type: String,
-		ref: 'parkingSpots',
+		ref: 'parkingSpot',
+		required: false
+	},
+	cost: {
+		type: Number,
 		required: false
 	}
 });

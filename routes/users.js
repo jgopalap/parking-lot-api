@@ -3,40 +3,60 @@ var upload = require('../server').upload;
 var UserModel = require('../models/user').UserModel;
 
 
+/**
+	POST/create a user account for valets, owners and parking authorities.
+	@param: body will contain the conent of user to create
+	@return the status code 201 and JSON of the new user (embedding generated token) on success
+ */
 app.post('/users/add', upload.array(), function(req, res){
 	var userItem = {
 		name: req.body.name,
 		type: req.body.type,
 		token: req.body.token,
-		_id: req.body.id
 	};
 	var user = new UserModel(userItem);
 	user.save(function(err, user) {
-		console.log(err);
-		if(!err) {
-			res.sendStatus(200);
+		if(err) {
+			console.log(err);
+		} else {
+			res.send(201).json(user);
 		}
 	});
 });
 
-app.put('/users/update', upload.array(), function(req, res){
-	UserModel.find({id: req.body.id}, function(err, user) {
+/**
+	PUT/update the given user.
+	@param: 24 hex id of user
+	@return: status code 200 and user JSON on success
+ */
+app.put('/users/:id/update', upload.array(), function(req, res){
+	UserModel.findById(req.params.id, function(err, user) {
   		user.name = req.body.name;
   		user.type = req.body.type;
   		user.token = req.body.token;
   		user.save(function(err, user) {
-  			if(!err) {
-  				res.sendStatus(200);
+  			if(err) {
+  				console.log(err);
+  			} else {
+  				res.send(200).json(user);
   			}
   		});
   	});
 
 });
 
-app.delete('/users/delete', upload.array(), function(req, res){
-	UserModel.findByIdAndRemove(req.body.id, function(err, user) {
-		if(!err) {
-			res.sendStatus(200);
+
+/**
+	DELETE the given user.
+	@param: 24 hex id of the user to delete
+	@return: status code 204 on success
+ */
+app.delete('/users/:id/delete', function(req, res){
+	UserModel.findByIdAndRemove(req.params.id, function(err, user) {
+		if(err) {
+			console.log(err);
+		} else {
+			res.sendStatus(204);
 		}
 	});	
 });

@@ -7,6 +7,11 @@ var car = new Schema({
 		required: true,
 		unique: true
 	},
+	size: {
+		type: String,
+		required: true,
+		enum: ['S', 'M', 'L', 'XL']
+	},
 	userId: {
 		type: Schema.Types.ObjectId,
 		ref: 'user',
@@ -22,20 +27,20 @@ var car = new Schema({
 	},
 	timeOut: {
 		type: Date,
-		required: true
+		required: false
 	},
 	colour: {
 		type: String,
 		required: false
 	},
-	location: {
-		type: String,
+	parkingSpotId: {
+		type: Schema.Types.ObjectId,
 		ref: 'parkingSpot',
 		required: true
 	},
 	cost: {
 		type: Number,
-		required: true
+		required: false
 	}
 });
 

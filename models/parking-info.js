@@ -17,9 +17,9 @@ var parkingInfo = new Schema({
 	timeOut: Date,
 	parkingSpot: {
 		type: Schema.Types.ObjectId,
-		ref: 'parkingSpot'
+		ref: 'parkingSpot',
 		required: true
-	}
+	},
 	cost: Number
 });
 

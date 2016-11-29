@@ -6,9 +6,10 @@ var user = new Schema({
 		type: String,
 		required: true,
 	},
-	type: {
+	role: {
 		type: String,
-		required: true
+		required: true,
+		enum: ['admin', 'valet', 'parking authority']
 	},
 	token: {
 		type: String,

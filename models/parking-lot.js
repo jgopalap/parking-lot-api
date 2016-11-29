@@ -4,7 +4,8 @@ var Schema = mongoose.Schema;
 var parkingSpot = new Schema ({
 	size: {
 		type: String,
-		required: true
+		required: true,
+		enum: ['S', 'M', 'L', 'XL']
 	},
 	location: {
 		type: String,
@@ -13,7 +14,7 @@ var parkingSpot = new Schema ({
 	car: {
 		type: String,
 		ref: 'car',
-		required: true
+		required: false
 	}
 });
 

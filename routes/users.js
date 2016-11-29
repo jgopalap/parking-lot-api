@@ -11,7 +11,7 @@ var UserModel = require('../models/user').UserModel;
 app.post('/users/add', upload.array(), function(req, res){
 	var userItem = {
 		name: req.body.name,
-		type: req.body.type,
+		role: req.body.role,
 		token: req.body.token,
 	};
 	var user = new UserModel(userItem);
@@ -19,7 +19,7 @@ app.post('/users/add', upload.array(), function(req, res){
 		if(err) {
 			console.log(err);
 		} else {
-			res.send(201).json(user);
+			res.status(201).json(user);
 		}
 	});
 });
@@ -31,14 +31,20 @@ app.post('/users/add', upload.array(), function(req, res){
  */
 app.put('/users/:id/update', upload.array(), function(req, res){
 	UserModel.findById(req.params.id, function(err, user) {
-  		user.name = req.body.name;
-  		user.type = req.body.type;
-  		user.token = req.body.token;
+		if(req.body.name) {
+  			user.name = req.body.name;
+  		}
+  		if(req.body.role) {
+  			user.role = req.body.role;
+  		}
+  		if(req.body.token) {
+  			user.token = req.body.token;
+  		}
   		user.save(function(err, user) {
   			if(err) {
   				console.log(err);
   			} else {
-  				res.send(200).json(user);
+  				res.status(200).json(user);
   			}
   		});
   	});

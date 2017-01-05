@@ -1,4 +1,4 @@
-Parking Lot API version 1.0
+Valet Service API version 1.0
  
 - allows for CRUD operations on cars, users, parking lots and spots.
 - provides APIs for computing cost on exit, identifying parked cars in a parking lot, car in a parking spot, available parking spots (in a parking lot, city B, or near postal code)

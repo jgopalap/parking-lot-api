@@ -1,58 +1,27 @@
 var app = require('../server').app;
 var upload = require('../server').upload;
 var ParkingLotModel = require('../models/parking-lot').ParkingLotModel;
-var ParkingSpotModel = require('../models/parking-lot').ParkingSpotModel;
+
+var createParkingLotLayout = require('../models/parking-lot').createParkingLotLayout;
+var computeCost = require('../models/parking-lot').computeCost;
 
 /**
-	Create a defaulat parking lot layout.
-	@param: parking lot object
-	@param: parking spot size
-	@param: capacity for given size
-	@param: the prefix for the location reference
-*/
-function createParkingLotLayout(parkingLot, pSize, capacity, locationPrefix) {
-	var i;
-	for(var i=0; i<capacity; i++) {
-		var p = {
-			size: pSize,
-			location: locationPrefix + i
-		}
-		var pRecord = new ParkingSpotModel(p);
-		pRecord.save(function(err) {
-			console.log(err);
-		})
-		parkingLot.parkingSpots.push(pRecord);
-	}
-};
-
-/**
-	GET a car parked in a given parking spot.
-	@param: 24 hex id of parking spot 
-	@return: a car JSON on success
- */
-app.get('/parkingLots/parkingSpots/:id', function(req, res){
-	ParkingLotModel.find({'parkingSpot._id': req.params.id}, 'parkingLot.parkingSpot.car', function(err, car) {
-		if(err) {
-			console.log(err);
-		} else {
-			res.json(car);
-		}	
-	});
-});
-
-/**
-	GET the given parking lot.
-	@param: 24 hex id of parking lot
+	GET a parking lot by postal code and address.
+	@param: street number of the parking lot
+	@param: street name of the parking lot
+	@param: postal code of the parking lot
 	@return parking lot JSON
  */
-app.get('/parkingLots/:id', function(req, res) {
-	ParkingLotModel.findById(req.params.id, function(err, parkingLot) {
+app.get('/parkingLots/:streetNumber/:streetName/:postalCode', function(req, res) {
+	var regex1 = req.params.streetNumber + '\\s*' + req.params.streetName + '\\s*.*';
+	var regex2 = req.params.postalCode.replace(' ', '');
+	ParkingLotModel.find({$and: [{address: {$regex: regex1, $options: 'i'}}, {postalCode: {$regex: regex2, $options: 'i'}}]}, function(err, parkingLot) {
 		if(err) {
 			console.log(err);
 		} else {
 			res.json(parkingLot);
 		}
-	})
+	});
 });
 
 /**
@@ -69,6 +38,87 @@ app.get('/parkingLots/:id/cars', function(req, res){
 		}	
 	});
 });
+
+/*
+	POST/ Park a car in a parking spot.  The car data will be added if it doesn't already exist, however the necessary data 
+	for the car should be obtained through GET /car/:licensePlate and sent as part of the request to avoid introducing data inconsistency.
+	Unless of course the license plate is now associated with a different car.
+	@param: the parking lot id
+	@param: the parking spot location
+	@param: a JSON in the body that contains the license plate number (primary, required),
+	             valet username (required), car model (not required), timeIn (required in the format YYYY-mm-ddTHH:MM:ssZ),
+	             colour (not required), and parkingSpotId (required)
+	@return: Status code 201 and created car JSON on success, otherwise status code 400 if 
+	 	     car is already parked in the given parking spot or size isn't compatible.  
+ */
+app.post('/parkingLots/:id/parkingSpots/:location/car/enter', upload.array(), function(req, res){
+	var carItem = {
+		size: req.body.size,
+		_id: req.body.licensePlate,
+	};
+	
+	if(req.body.model) {
+		carItem.model = req.body.model;
+	}
+	if(req.body.colour) {
+		carItem.colour = req.body.colour;
+	}
+
+	var date = new Date(req.param.date);
+
+	var parkingRecord = {
+		username: req.body.username,
+		car: carItem,
+		timeIn: req.body.timeIn
+	}
+
+	ParkingLotModel.findOne({"_id": req.params.id},{parkingSpots: {$elemMatch: {location: req.params.location}}}, 'parkingSpots parkingSpots.parkingRecords', function(err, parkingLot) {
+		//a car is already parked in that parking spot
+		if(parkingLot.parkingSpots[0].hasOwnProperty('car')) {
+			res.sendStatus(400);
+		}
+
+		//check if the parking spot size is compatible
+		if(parkingLot.parkingSpots[0].size !== carItem.size) {
+			res.sendStatus(400);
+		}
+
+		parkingLot.parkingSpots[0].car = carItem;
+		parkingLot.save(function(err) {
+			console.log(err);
+		});
+
+		ParkingLotModel.update({ _id: req.params.id, 'parkingSpots.location': req.params.location }, { $push:  { 'parkingSpots.$.parkingRecords': parkingRecord } }, function(err) {
+			res.status(201).json(parkingRecord);
+		});
+	});
+});
+
+
+/**
+	PUT/update the parking data upon car exit.  A history will be retained on the parking session.
+	@param: the parking lot that the car is exiting from.
+	@param: the parking record object
+*/
+app.put('/parkingLots/:id/car/:licensePlate/exit', upload.array(), function(req, res) {
+	var regex = req.params.licensePlate.replace(' ', '');
+	//ParkingLotModel.update({_id: req.params.id, 'parkingSpots.car._id': {$regex: regex, $options: 'i'}}, {$unset: {'parkingSpots.car': '' }}, function(err){console.log(err)});
+	ParkingLotModel.findOne({_id: req.params.id, 'parkingSpots.car._id': {$regex: regex, $options: 'i'}, 'parkingSpots.parkingRecords.timeOut': {$exists: false}}, {'parkingSpots.parkingRecords.$':1, 'rate': 1}, function(err, parkingLot) {
+		if(err) {
+			res.sendStatus(400);
+			return;
+		}
+
+		parkingLot.parkingSpots[0].car = undefined;
+		var parkingRecord = parkingLot.parkingSpots[0].parkingRecords[0];
+		parkingRecord.timeOut = new Date(req.body.timeOut);
+		parkingRecord.cost = computeCost(parkingRecord.timeIn, parkingRecord.timeOut, parkingLot.rate.halfHourRate, parkingLot.rate.dailyMaxRate);	
+		parkingLot.save(function(err) {
+			res.status(201).json(parkingRecord);
+		});
+	});
+});
+
 
 /**
 	GET all available parking spots, filter by parking lot or parking spot size embedded in the query as ?id=<id> or ?size=<size>.
@@ -96,27 +146,34 @@ app.get('/parkingLots/parkingSpots/available', function(req, res) {
 	@return: status code 201 and parking lot JSON on success
  */
 app.post('/parkingLots/add', upload.array(), function(req, res){
-	var capacity = parseInt(req.body.capacity);
 	var parkingLotItem = {
+		ownerUsername: req.body.ownerUsername,
 		name: req.body.name,
 		address: req.body.address,
-		city: req.body.city,
 		postalCode: req.body.postalCode,
 		capacity: req.body.capacity,
-		parkingSpots: []
+		parkingSpots:[]
 	};
+
+	if(req.body.halfHourRate) {
+		parkingLotItem.rate.halfHourRate = req.body.halfHourRate;
+	}
+	if(req.body.dailyMaxRate) {
+		parkingLotItem.rate.dailyMaxRate = req.body.dailyMaxRate;
+	}
+	if(req.body.currency) {
+		parkingLotItem.rate.currency = req.body.currency;
+	}
 	if (req.body.parkingSpots) {
-		parkingLayout = req.body.parkingSpots;
+		parkingLotItem.parkingSpots = req.body.parkingSpots;
 	} else {
-		var smallCapacity = capacity*0.1 | 0;
-		var mediumCapacity = capacity*0.45 | 0;
-		var largeCapacity = capacity*0.35 | 0;
-		var superCapacity = capacity - smallCapacity - mediumCapacity - largeCapacity;
-		
-		createParkingLotLayout(parkingLotItem, 'S', smallCapacity, 'P4-');
-		createParkingLotLayout(parkingLotItem, 'M', mediumCapacity, 'P3-');
-		createParkingLotLayout(parkingLotItem, 'L', largeCapacity, 'P2-');
-		createParkingLotLayout(parkingLotItem, 'XL', superCapacity, 'P1-');
+		var parkingLotSpecification = {
+			small: ['S', 4, 0.1],
+			medium: ['M', 3, 0.45],
+			large: ['L', 2, 0.35],
+			xlarge: ['XL', 1, 0.1]
+		}
+		createParkingLotLayout(parkingLotItem, parkingLotSpecification, parkingLotItem.capacity);
 	}
 
 	var parkingLot = new ParkingLotModel(parkingLotItem);
@@ -139,22 +196,23 @@ app.post('/parkingLots/add', upload.array(), function(req, res){
 app.post('/parkingLots/:id/parkingSpots/add', upload.array(), function(req, res){
 	var parkingSpotItem = {
 		size: req.body.size,
-		location: req.body.location,
-		car: req.body.car
+		location: req.body.location
 	};
 	
 	ParkingLotModel.findById(req.params.id, function(err, parkingLot){
 		if(err) {
 			console.log(err); 
 		} else {
-			var parkingSpot = new ParkingLotModel(parkingSpotItem);
-			parkingSpot.save();
 			parkingLot.parkingSpots.push(parkingSpotItem);
+			//increment the capacity in case it was previously maxed
+			if (parkingLot.capacity === parkingLot.children.length) {
+				parkingLot.capacity = parkingLot.capacity + 1;
+			}
 			parkingLot.save(function(err, parkingLot) {
 				if(err) {
 					console.log(err);
 				} else {
-					res.status(201).json(parkingSpotItem);
+					res.status(201).json(parkingLot);
 				}
 			});
 		}
@@ -205,28 +263,26 @@ app.put('/parkingLots/:id/update', upload.array(), function(req, res){
 	@param: parking spot content in the body
 	@return: parking spot JSON
 */
-app.put('/parkingLots/parkingSpots/:id/update', upload.array(), function(req, res) {
-	ParkingLotModel.findOne({'parkingSpot._id':req.params.id}, function(err, parkingLot) {
-		ParkingLotModel.findOne({'parkingSpot._id':req.params.id}, 'parkingSpot', function(err1, parkingSpot) {
+app.put('/parkingLots/:id/parkingSpots/:location/update', upload.array(), function(req, res) {
+	ParkingLotModel.findOne({"_id": req.params.id},{parkingSpots: {$elemMatch: {location: req.params.location}}}, function(err, parkingLot) {
+		if (err) {
+			console.log(err);
+		} else {	
 			if(req.body.size) {
-				parkingSpot.size = req.body.size;
+				parkingLot.parkingSpots[0].size = req.body.size;
 			}
 			if(req.body.location) {
-				parkingSpot.location = req.body.location;
+				parkingLot.parkingSpots[0].location = req.body.location;
 			}
-			if(req.body.car) {
-				parkingSpot.car = req.body.car;
-			}
-			parkingLot.save(function(err) {
+			parkingLot.save(function(err, parkingLot) {
 				if(err) {
 					console.log(err);
 				} else {
-					res.status(200).json(parkingSpot);
+					res.status(200).json(parkingLot);
 				}
 			});
-		})
+		}
   	});
-
 });
 
 /**
@@ -246,28 +302,19 @@ app.delete('/parkingLots/:id/delete', function(req, res){
 
 /**
 	DELETE the parking spot
-	@param: 24 hex id for parking spot
+	@param: 24 hex id for parking lot
+	@param: parking spot location or identifier
 	@return: status code 204 on success
 */
-app.delete('/parkingLots/parkingSpots/:id/delete', function(req, res) {
-	ParkingLotModel.findOne({'parkingSpot._id':req.params.id}, function(err, parkingLot) {
-		ParkingLotModel.findOne({'parkingSpot._id':req.params.id}, 'parkingSpot', function(err1, parkingSpot) {
-			parkingSpot.remove(function(err, parkingSpot) {
-				if(err) {
-					console.log(err);
-				} else {
-					parkingLot.save(function(err) {
-						if(err) {
-							console.log(err);
-						} else {
-							res.sendStatus(204);
-						}
-					});
-				}
-			});
-
-		});	
+app.delete('/parkingLots/:id/parkingSpots/:location/delete', function(req, res) {
+	ParkingLotModel.findOneAndRemove({"_id": req.params.id},{parkingSpots: {$elemMatch: {location: req.params.location}}}, function(err) {
+		if(err) {
+			console.log(err);
+		} else {
+			res.sendStatus(204);
+		}
 	});
 });
+
 
 

@@ -2,6 +2,13 @@ var mongoose = require('mongoose')
 var Schema = mongoose.Schema;
 
 var user = new Schema({
+	_id: {
+		type: String //username
+	},
+	password: {
+		type: String,
+		required: true,
+	},
 	name: {
 		type: String,
 		required: true,
@@ -9,12 +16,12 @@ var user = new Schema({
 	role: {
 		type: String,
 		required: true,
-		enum: ['admin', 'valet', 'parking authority']
+		enum: ['admin', 'user']
 	},
 	token: {
 		type: String,
-		required: true,
-		unique: true
+//		required: true,  //TODO:reenable this once token based authentication is implemented
+//		unique: true
 	}
 });
 
